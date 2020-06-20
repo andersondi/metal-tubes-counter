@@ -1,46 +1,58 @@
 import cv2
 import numpy as np
 
-kernel = np.ones((5, 5), np.uint8)
-
-# kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-
+def nothing():
+    pass
 
 imgOriginal = cv2.imread('resources/tubes3.jpg')
 
-imgGray = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
-imgGray = cv2.GaussianBlur(imgGray, (7, 7), cv2.BORDER_DEFAULT)
+# elemento estrutural necessario como parametro para operações de mudança morfologica
+kernel = np.ones((3, 3), np.uint8)
 
-ret, imgThresholded = cv2.threshold(imgGray, 20, 255, cv2.THRESH_BINARY_INV)
+# Cria uma janela
+cv2.namedWindow('Morphed')
 
-morph = cv2.erode(imgThresholded, kernel, iterations=3)
-morph = cv2.dilate(morph, kernel, iterations=3)
+cv2.createTrackbar('Treshold','Morphed',0,255,nothing)
 
-# morph = cv2.morphologyEx(imgThresholded, cv2.MORPH_CLOSE, kernel)
+cv2.createTrackbar('Iteractions','Morphed',0,10,nothing)
 
-# imgTh2Gray = cv2.cvtColor(imgEroded, cv2.COLOR_GRAY2BGR)
-# circles	= cv2.HoughCircles(imgTh2Gray,cv2.HOUGH_GRADIENT,1,40,param1=100,param2=30,minRadius=0,maxRadius=40)
+while(1):
 
-circles	= cv2.HoughCircles(imgGray,cv2.HOUGH_GRADIENT,1,40,param1=100,param2=30,minRadius=0,maxRadius=40)
+    # Clone original image to not overlap drawings
+    clone = imgOriginal.copy()
+    
+    # Converte a imagem para a escala de cinzas. Isso é feito para retirar detalhes desnecessarios
+    imgGray = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
+    # imgGray = cv2.GaussianBlur(imgGray, (7, 7), cv2.BORDER_DEFAULT)
 
-circles	= np.uint16(np.around(circles))
+    # Pega a posicao atual das barras de monitoramento
+    r = cv2.getTrackbarPos('Treshold','Morphed')
+    iter_num = cv2.getTrackbarPos('Iteractions', 'Morphed')
+    
+    # Converte a imagem para preto e branco binarizado
+    ret, imgThresholded = cv2.threshold( imgGray, r, 255, cv2.THRESH_BINARY_INV )
+    
+    # Operacao de erosao para reduzir ruidos na imagem. Essa operacao reduz tambem as regioes de interesse.
+    morph = cv2.erode(imgThresholded, kernel, iterations=iter_num)
 
-contours, hierarchy = cv2.findContours(morph,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+    # Operacao de dilatacao para transformar as regioes de interesse para um tamanho proximo do original.
+    morph = cv2.dilate(morph, kernel, iterations=iter_num)
+    
+    # Faz a contagem de contornos com base em uma imagem binarizada.
+    # Isso acaba gerando a contagem de regioes das circunferencias.
+    contours, hierarchy = cv2.findContours(morph,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+    
+    print (f"Encontrados {str(len(contours))} regiões")
+    
+    # Mostra as janelas
+    cv2.imshow("Morphed", morph)
+    cv2.imshow("Original image", imgOriginal)
 
-print (circles)
-print (f"Encontrados {str(circles.shape[1])} circunferências")
-print (f"Encontrados {str(len(contours))} regiões") 
+    # ESC para parar a aplicacao
+    k = cv2.waitKey(1) & 0xFF
+    if k == 27:
+        break
 
-count = 1
-for	i in circles[0,:]:
- 	# draw the outer circle
- 	cv2.circle(imgOriginal,(i[0],i[1]),i[2],(0,255,0),4)
- 	# draw the center of the circle
- 	cv2.circle(imgOriginal,(i[0],i[1]),2,(0,0,255),3)
-
-cv2.imshow("Original image", imgOriginal)
-cv2.imshow("Thresholded image", morph)
-cv2.imshow("Blured gray image", imgGray)
-cv2.waitKey(0)
+# Fecha todas as janelas abertas
 cv2.destroyAllWindows()
 
