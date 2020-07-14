@@ -1,12 +1,40 @@
 import cv2
 import numpy as np
 
+def image_resize(image, width = None, height = None, inter = cv2.INTER_AREA):
+    dim = None
+    (h, w) = image.shape[:2]
+
+    # Se não for fornecida uma restricao de largura ou altura
+    if width is None and height is None:
+        return image
+
+    # Se não for dado o parametro de largura
+    if width is None:
+        # Calcula a razao entre as dimensoes com base na altura
+        r = height / float(h)
+        dim = (int(w * r), height)
+
+    # Se não for dado o parametro de altura
+    else:
+        # Calcula a razao entre as dimensoes com base na largura
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    # Redimensiona a imagem
+    resized = cv2.resize(image, dim, interpolation = inter)
+
+    # retorna a imagem redimensionada
+    return resized
+
 def nothing():
     pass
 
 font = cv2.FONT_HERSHEY_SIMPLEX
 
-imgOriginal = cv2.imread('resources/tubes4.jpg')
+imgOriginal = cv2.imread('resources/sample-1.jpg')
+
+imgOriginal = image_resize(imgOriginal, width = 500)
 
 # elemento estrutural necessario como parametro para operações de mudança morfologica
 kernel = np.ones((3, 3), np.uint8)
@@ -21,31 +49,26 @@ cv2.createTrackbar('Treshold','Morphed',0,255,nothing)
 cv2.createTrackbar('Iteractions','Morphed',0,10,nothing)
 
 while(1):
-    # Clone original image to not overlap drawings
+    # Clona a imagem original
     clone = imgOriginal.copy()
     
     # Converte a imagem para a escala de cinzas. Isso é feito para retirar detalhes desnecessarios
     imgGray = cv2.cvtColor(imgOriginal, cv2.COLOR_BGR2GRAY)
-    # imgGray = cv2.GaussianBlur(imgGray, (7, 7), cv2.BORDER_DEFAULT)
-
+    imgGray = cv2.GaussianBlur(imgGray, (7, 7), cv2.BORDER_DEFAULT)
+    
     # Pega a posicao atual das barras de monitoramento
     r = cv2.getTrackbarPos('Treshold','Morphed')
     iter_num = cv2.getTrackbarPos('Iteractions', 'Morphed')
     
     # Converte a imagem para preto e branco binarizado
     ret, imgThresholded = cv2.threshold( imgGray, r, 255, cv2.THRESH_BINARY_INV )
-    
+   
     # Operacao de erosao para reduzir ruidos na imagem. Essa operacao reduz tambem as regioes de interesse.
     morph = cv2.erode(imgThresholded, kernel, iterations=iter_num)
 
     # Operacao de dilatacao para transformar as regioes de interesse para um tamanho proximo do original.
     morph = cv2.dilate(morph, kernel, iterations=iter_num)
     
-    dist = cv2.distanceTransform(morph,cv2.DIST_L2, cv2.DIST_MASK_3)
-
-    cv2.normalize(dist,dist,0,1,cv2.NORM_MINMAX)
-
-    # Blur na imagem binaria para criar um gradiente de cinzas nas bordas das regioes
     bilateral_filtered_image = cv2.bilateralFilter(morph, 5, 175, 175)
     
     # Faz a contagem de contornos com base em uma imagem binarizada.
@@ -90,18 +113,17 @@ while(1):
             number_of_circles += 1
 
     resultText = f"Regioes: {str(len(contours))}"
-    circlesResultText = f"Circulos: {number_of_circles}"
-    areaResultText = f"Areas validas: {number_of_areas}"
+    circlesResultText = f"Hough Circles: {number_of_circles}"
+    areaResultText = f"Regioes validas: {number_of_areas}"
     
     borderSize = 100
 
     clone = cv2.copyMakeBorder(clone, borderSize, 0, 0, 0, 
                                 cv2.BORDER_CONSTANT | cv2.BORDER_ISOLATED, 0)
     
-    for i in range(100):
-        cv2.putText(clone, resultText, (10, 30), font, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
-        cv2.putText(clone, circlesResultText, (200, 30), font, 0.8, (255, 0, 0), 2, cv2.LINE_AA)
-        cv2.putText(clone, areaResultText, (10, 70), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+    cv2.putText(clone, resultText, (10, 30), font, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.putText(clone, circlesResultText, (200, 30), font, 0.8, (255, 0, 0), 2, cv2.LINE_AA)
+    cv2.putText(clone, areaResultText, (10, 70), font, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
 
     # Mostra as janelas
     cv2.imshow("Morphed", morph)
